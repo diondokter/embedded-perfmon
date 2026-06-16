@@ -8,6 +8,8 @@ use indexmap::IndexMap;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+pub mod perfetto;
+
 pub fn deserialize_events(mut bytes: &mut [u8]) -> anyhow::Result<Vec<Event<'_>>> {
     let mut events = Vec::new();
 

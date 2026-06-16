@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["analyzer", "runtime", "transport"]
+members = ["analyzer", "perfetto-protos", "runtime", "transport"]
 exclude = ["examples/rtt"]
 
 [patch.crates-io]

@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -15,7 +15,8 @@ struct Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Command {
-    Parse(ParseArgs),
+    ParseToJson(ParseArgs),
+    ParseToPerfetto(ParseArgs),
     Schema {
         /// The path where the schema json is saved.
         /// If not specified, the schema is outputted to stdout.
@@ -45,7 +46,8 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Command::Parse(args) => parse(args),
+        Command::ParseToJson(args) => parse_to_json(args),
+        Command::ParseToPerfetto(args) => parse_to_perfetto(args),
         Command::Schema { output } => schema(output),
     }
 }
@@ -70,7 +72,7 @@ fn schema(output: Option<PathBuf>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn parse(args: ParseArgs) -> anyhow::Result<()> {
+fn parse_to_json(args: ParseArgs) -> anyhow::Result<()> {
     let mut bytes = match args.source.file {
         Some(path) => collect_from_file(path)?,
         _ => unreachable!(),
@@ -92,6 +94,30 @@ fn parse(args: ParseArgs) -> anyhow::Result<()> {
             "{}",
             serde_json::to_string_pretty(&capture).context("serializing traces to json")?
         );
+    }
+
+    Ok(())
+}
+
+fn parse_to_perfetto(args: ParseArgs) -> anyhow::Result<()> {
+    let mut bytes = match args.source.file {
+        Some(path) => collect_from_file(path)?,
+        _ => unreachable!(),
+    };
+
+    let events = deserialize_events(&mut bytes)?;
+
+    let trace = embedded_perfmon_analyzer::perfetto::to_perfetto_trace(&events);
+
+    if let Some(output_path) = args.output {
+        let mut file = fs::File::create(&output_path).context(format!(
+            "creating output path at: {}",
+            output_path.display()
+        ))?;
+        file.write_all(&perfetto_protos::serialize_trace(trace))
+            .context("writing trace to file")?;
+    } else {
+        println!("{trace:?}",);
     }
 
     Ok(())
